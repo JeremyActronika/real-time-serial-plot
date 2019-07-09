@@ -9,8 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
 import serial
+from time import sleep
 
 ser = serial.Serial()
+fd = None
 
 MAX_SIZE = 50
 
@@ -25,6 +27,8 @@ def read_line(wait = True):
     while ser.in_waiting and wait:
         line = ser.readline()
     line = line.decode("utf-8")
+    if fd is not None:
+        fd.write(line)
     line = line.replace('\n', '')
     line = line.replace('\0', '')
     data = line.split(';')
@@ -59,6 +63,9 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--baudrate', help='Baud rate of serial port', default=115200)
     parser.add_argument('-m', '--max-point', help='Number max of point to display', default=300, type=int)
     parser.add_argument('-i', '--interval', help='Time interval between each update of screen (in ms)', default=10, type=int)
+    parser.add_argument('-v', '--verbose', help='Enable verbose mode', action="store_true")
+    parser.add_argument('-r', '--reset', help='Reset arduino when launch program', action="store_true")
+    parser.add_argument('-S', '--save', help='Save data in filename give in argument', type=str)
     args = parser.parse_args()
 
 
@@ -67,6 +74,15 @@ if __name__ == '__main__':
     ser.baudrate = args.baudrate
     ser.port = args.serial
     ser.open()
+
+    if args.save is not None:
+        fd = open(args.save, 'w')
+
+    if args.reset:
+        ser.setDTR(False)
+        sleep(1)
+        ser.flushInput()
+        ser.setDTR(True)
 
     label_valid = False
     while not label_valid:
@@ -87,3 +103,8 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ani = animation.FuncAnimation(fig, animate, interval=args.interval)
     plt.show()
+
+    ser.close()
+
+    if fd is not None:
+        fd.close()
